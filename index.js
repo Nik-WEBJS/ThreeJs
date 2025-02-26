@@ -1,176 +1,83 @@
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import * as dat from "dat.gui";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
-/**
- * Loader
- */
-const gltfLoader = new GLTFLoader();
-const cubeTextureLoader = new THREE.CubeTextureLoader();
-
-/*
- * Base
- */
-// Debug
-const gui = new dat.GUI();
-const debugObject = {};
-
-// Canvas
-const canvas = document.querySelector("canvas.webgl");
-
-// Scene
+// Создаем сцену
 const scene = new THREE.Scene();
-
-/**
- * Update all materials
- */
-const updateAllMaterials = () => {
-  scene.traverse((child) => {
-    if (
-      child instanceof THREE.Mesh &&
-      child.material instanceof THREE.MeshStandardMaterial
-    ) {
-      child.material.envMapIntensity = debugObject.envMapIntensity;
-      child.material.needsUpdate = true;
-      child.castShadow = true;
-      child.receiveShadow = true;
-    }
-  });
-};
-
-/**
- * Environment map
- */
-const environmentMap = cubeTextureLoader.load([
-  "/textures/environmentMaps/0/px.jpg",
-  "/textures/environmentMaps/0/nx.jpg",
-  "/textures/environmentMaps/0/py.jpg",
-  "/textures/environmentMaps/0/ny.jpg",
-  "/textures/environmentMaps/0/pz.jpg",
-  "/textures/environmentMaps/0/nz.jpg",
-]);
-environmentMap.encoding = THREE.sRGBEncoding;
-scene.background = environmentMap;
-scene.environment = environmentMap;
-
-/**
- * Models
- */
-gltfLoader.load("/models/FlightHelmet/glTF/FlightHelmet.gltf", (gltf) => {
-  gltf.scene.scale.set(10, 10, 10);
-  gltf.scene.position.set(0, -4, 0);
-  gltf.scene.rotation.y = Math.PI * 0.5;
-  scene.add(gltf.scene);
-
-  gui
-    .add(gltf.scene.rotation, "y")
-    .min(-Math.PI)
-    .max(Math.PI)
-    .step(0.001)
-    .name("rotation");
-
-  updateAllMaterials();
-});
-
-/**
- * Light
- */
-const light = new THREE.DirectionalLight("#ffffff", 3);
-light.position.set(0.25, 3, -2.25);
-light.castShadow = true;
-light.shadow.camera.far = 15; 
-light.shadow.mapSize.set(1024, 1024);
-scene.add(light);
-
-// const lightCameraHelper = new THREE.CameraHelper(light.shadow.camera);
-// scene.add(lightCameraHelper);
-
-gui.add(light, "intensity").min(0).max(10).step(0.001).name("lightIntensity");
-gui.add(light.position, "x").min(-5).max(5).step(0.001).name("lightX");
-gui.add(light.position, "y").min(-5).max(5).step(0.001).name("lightY");
-gui.add(light.position, "z").min(-5).max(5).step(0.001).name("lightZ");
-
-/**
- * Sizes
- */
-const sizes = {
-  width: window.innerWidth,
-  height: window.innerHeight,
-};
-
-window.addEventListener("resize", () => {
-  // Update sizes
-  sizes.width = window.innerWidth;
-  sizes.height = window.innerHeight;
-
-  // Update camera
-  camera.aspect = sizes.width / sizes.height;
-  camera.updateProjectionMatrix();
-
-  // Update renderer
-  renderer.setSize(sizes.width, sizes.height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-});
-
-/**
- * Camera
- */
-// Base camera
 const camera = new THREE.PerspectiveCamera(
   75,
-  sizes.width / sizes.height,
+  window.innerWidth / window.innerHeight,
   0.1,
-  100
+  1000
 );
-camera.position.set(4, 1, -4);
-scene.add(camera);
 
-// Controls
-const controls = new OrbitControls(camera, canvas);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// Добавляем текстуру Земли с обводкой государств
+const textureLoader = new THREE.TextureLoader();
+const earthTexture = textureLoader.load("./Albedo.jpg");
+earthTexture.wrapS = THREE.ClampToEdgeWrapping;
+earthTexture.wrapT = THREE.ClampToEdgeWrapping;
+
+const earthGeometry = new THREE.SphereGeometry(5, 64, 64);
+const earthMaterial = new THREE.MeshStandardMaterial({ map: earthTexture });
+
+const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+scene.add(earth);
+
+// Добавляем свет
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Мягкий белый свет
+scene.add(ambientLight);
+const pointLight = new THREE.PointLight(0xffffff, 1);
+pointLight.position.set(0, 0, 0); // В центре сферы
+scene.add(pointLight);
+
+// Добавляем управление камерой
+const controls = new OrbitControls(camera, renderer.domElement);
+camera.position.z = 12;
 controls.enableDamping = true;
 
-/**
- * Renderer
- */
-const renderer = new THREE.WebGLRenderer({
-  canvas: canvas,
-  antialias: true,
+// Функция для добавления точки по координатам
+function addMarker(lat, lon) {
+  const radius = 5.05; // Чуть больше радиуса сферы для избегания пересечения
+  const phi = THREE.MathUtils.degToRad(90 - lat);
+  const theta = THREE.MathUtils.degToRad(-lon); // Исправляем направление долготы
+
+  const x = radius * Math.sin(phi) * Math.cos(theta);
+  const y = radius * Math.cos(phi);
+  const z = radius * Math.sin(phi) * Math.sin(theta);
+
+  const markerGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+  const markerMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+  marker.position.set(x, y, z);
+  scene.add(marker);
+}
+
+// Форма для ввода координат
+const form = document.createElement("div");
+form.innerHTML = `
+    <input id="lat" type="number" placeholder="Широта" step="0.01"> 
+    <input id="lon" type="number" placeholder="Долгота" step="0.01">
+    <button id="addMarker">Добавить</button>
+`;
+form.style.position = "absolute";
+form.style.top = "10px";
+form.style.left = "10px";
+document.body.appendChild(form);
+
+document.getElementById("addMarker").addEventListener("click", () => {
+  const lat = parseFloat(document.getElementById("lat").value);
+  const lon = parseFloat(document.getElementById("lon").value);
+  if (!isNaN(lat) && !isNaN(lon)) {
+    addMarker(lat, lon);
+  }
 });
-renderer.setSize(sizes.width, sizes.height);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.physicallyCorrectLights = true;
-renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 3;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-gui
-  .add(renderer, "toneMapping", {
-    No: THREE.NoToneMapping,
-    Linear: THREE.LinearToneMapping,
-    Reinhard: THREE.ReinhardToneMapping,
-    Cineon: THREE.CineonToneMapping,
-    ACESFilmic: THREE.ACESFilmicToneMapping,
-  })
-  .onFinishChange(() => {
-    renderer.toneMapping = Number(renderer.toneMapping);
-    updateAllMaterials();
-  });
-gui.add(renderer, "toneMappingExposure").min(0).max(10).step(0.001);
-/**
- * Animate
- */
-const tick = () => {
-  // Update controls
-  controls.update();
-
-  // Render
+// Анимация сцены
+function animate() {
+  requestAnimationFrame(animate);
   renderer.render(scene, camera);
-
-  // Call tick again on the next frame
-  window.requestAnimationFrame(tick);
-};
-
-tick();
+}
+animate();
