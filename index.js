@@ -14,7 +14,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Добавляем текстуру Земли с обводкой государств
+// Текстура Земли
 const textureLoader = new THREE.TextureLoader();
 const earthTexture = textureLoader.load("./Albedo.jpg");
 earthTexture.wrapS = THREE.ClampToEdgeWrapping;
@@ -26,23 +26,23 @@ const earthMaterial = new THREE.MeshStandardMaterial({ map: earthTexture });
 const earth = new THREE.Mesh(earthGeometry, earthMaterial);
 scene.add(earth);
 
-// Добавляем свет
+// Свет
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Мягкий белый свет
 scene.add(ambientLight);
 const pointLight = new THREE.PointLight(0xffffff, 1);
 pointLight.position.set(0, 0, 0); // В центре сферы
 scene.add(pointLight);
 
-// Добавляем управление камерой
+// Управление камерой
 const controls = new OrbitControls(camera, renderer.domElement);
 camera.position.z = 12;
 controls.enableDamping = true;
 
 // Функция для добавления точки по координатам
 function addMarker(lat, lon) {
-  const radius = 5.05; // Чуть больше радиуса сферы для избегания пересечения
+  const radius = 5.05;
   const phi = THREE.MathUtils.degToRad(90 - lat);
-  const theta = THREE.MathUtils.degToRad(-lon); // Исправляем направление долготы
+  const theta = THREE.MathUtils.degToRad(-lon);
 
   const x = radius * Math.sin(phi) * Math.cos(theta);
   const y = radius * Math.cos(phi);
